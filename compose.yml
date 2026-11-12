@@ -1,0 +1,85 @@
+name: ecopulse
+x-app: &app
+  build: ./backend
+  restart: unless-stopped
+  environment: &environment
+    DATABASE_URL: postgresql://ecopulse:${POSTGRES_PASSWORD:-ecopulse}@postgres:5432/ecopulse
+    RABBITMQ_URLS: amqp://ecopulse:${RABBITMQ_PASSWORD:-ecopulse}@rabbitmq:5672/
+    REDIS_URL: redis://redis:6379/0
+    JWT_SECRET: ${JWT_SECRET:?Copie .env.example para .env e configure JWT_SECRET}
+    FIREBASE_CREDENTIALS: ${FIREBASE_CREDENTIALS:-}
+  volumes:
+    - ./secrets:/run/secrets:ro
+  depends_on:
+    postgres:
+      condition: service_healthy
+    rabbitmq:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ecopulse
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ecopulse}
+      POSTGRES_DB: ecopulse
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./database:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U ecopulse]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  rabbitmq:
+    image: rabbitmq:4-management
+    hostname: rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ecopulse
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-ecopulse}
+    ports:
+      - 127.0.0.1:15672:15672
+    volumes:
+      - rabbit-data:/var/lib/rabbitmq
+    healthcheck:
+      test: [CMD, rabbitmq-diagnostics, -q, ping]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: [redis-server, --appendonly, 'yes']
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  api:
+    <<: *app
+    ports: ['8000:8000']
+  worker-0:
+    <<: *app
+    command: [python, -m, app.worker]
+    environment:
+      <<: *environment
+      WORKER_SHARD: 0
+  worker-1:
+    <<: *app
+    command: [python, -m, app.worker]
+    environment:
+      <<: *environment
+      WORKER_SHARD: 1
+  alerts:
+    <<: *app
+    command: [uvicorn, app.alerts:app, --host, 0.0.0.0, --port, '8001']
+    ports: ['8001:8001']
+volumes:
+  postgres-data:
+  rabbit-data:
+  redis-data:

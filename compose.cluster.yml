@@ -1,0 +1,334 @@
+name: ecopulse-cluster
+services:
+  rabbit-1:
+    image: rabbitmq:4-management
+    hostname: rabbit-1
+    restart: unless-stopped
+    environment:
+      RABBITMQ_ERLANG_COOKIE: ecopulse-academic-cluster-cookie
+      RABBITMQ_DEFAULT_USER: ecopulse
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-ecopulse}
+    volumes:
+    - rabbit-1-data:/var/lib/rabbitmq
+    - ./infra/rabbitmq-cluster.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    healthcheck:
+      test:
+      - CMD
+      - rabbitmq-diagnostics
+      - -q
+      - ping
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    ports:
+    - 127.0.0.1:15673:15672
+  rabbit-2:
+    image: rabbitmq:4-management
+    hostname: rabbit-2
+    restart: unless-stopped
+    environment:
+      RABBITMQ_ERLANG_COOKIE: ecopulse-academic-cluster-cookie
+      RABBITMQ_DEFAULT_USER: ecopulse
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-ecopulse}
+    volumes:
+    - rabbit-2-data:/var/lib/rabbitmq
+    - ./infra/rabbitmq-cluster.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    healthcheck:
+      test:
+      - CMD
+      - rabbitmq-diagnostics
+      - -q
+      - ping
+      interval: 10s
+      timeout: 5s
+      retries: 30
+  rabbit-3:
+    image: rabbitmq:4-management
+    hostname: rabbit-3
+    restart: unless-stopped
+    environment:
+      RABBITMQ_ERLANG_COOKIE: ecopulse-academic-cluster-cookie
+      RABBITMQ_DEFAULT_USER: ecopulse
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-ecopulse}
+    volumes:
+    - rabbit-3-data:/var/lib/rabbitmq
+    - ./infra/rabbitmq-cluster.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    healthcheck:
+      test:
+      - CMD
+      - rabbitmq-diagnostics
+      - -q
+      - ping
+      interval: 10s
+      timeout: 5s
+      retries: 30
+  redis-1:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command:
+    - redis-server
+    - --cluster-enabled
+    - 'yes'
+    - --cluster-config-file
+    - nodes.conf
+    - --cluster-node-timeout
+    - '5000'
+    - --appendonly
+    - 'yes'
+    volumes:
+    - redis-1-data:/data
+    healthcheck:
+      test:
+      - CMD
+      - redis-cli
+      - ping
+      interval: 5s
+      timeout: 3s
+      retries: 30
+  redis-2:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command:
+    - redis-server
+    - --cluster-enabled
+    - 'yes'
+    - --cluster-config-file
+    - nodes.conf
+    - --cluster-node-timeout
+    - '5000'
+    - --appendonly
+    - 'yes'
+    volumes:
+    - redis-2-data:/data
+    healthcheck:
+      test:
+      - CMD
+      - redis-cli
+      - ping
+      interval: 5s
+      timeout: 3s
+      retries: 30
+  redis-3:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command:
+    - redis-server
+    - --cluster-enabled
+    - 'yes'
+    - --cluster-config-file
+    - nodes.conf
+    - --cluster-node-timeout
+    - '5000'
+    - --appendonly
+    - 'yes'
+    volumes:
+    - redis-3-data:/data
+    healthcheck:
+      test:
+      - CMD
+      - redis-cli
+      - ping
+      interval: 5s
+      timeout: 3s
+      retries: 30
+  redis-4:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command:
+    - redis-server
+    - --cluster-enabled
+    - 'yes'
+    - --cluster-config-file
+    - nodes.conf
+    - --cluster-node-timeout
+    - '5000'
+    - --appendonly
+    - 'yes'
+    volumes:
+    - redis-4-data:/data
+    healthcheck:
+      test:
+      - CMD
+      - redis-cli
+      - ping
+      interval: 5s
+      timeout: 3s
+      retries: 30
+  redis-5:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command:
+    - redis-server
+    - --cluster-enabled
+    - 'yes'
+    - --cluster-config-file
+    - nodes.conf
+    - --cluster-node-timeout
+    - '5000'
+    - --appendonly
+    - 'yes'
+    volumes:
+    - redis-5-data:/data
+    healthcheck:
+      test:
+      - CMD
+      - redis-cli
+      - ping
+      interval: 5s
+      timeout: 3s
+      retries: 30
+  redis-6:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command:
+    - redis-server
+    - --cluster-enabled
+    - 'yes'
+    - --cluster-config-file
+    - nodes.conf
+    - --cluster-node-timeout
+    - '5000'
+    - --appendonly
+    - 'yes'
+    volumes:
+    - redis-6-data:/data
+    healthcheck:
+      test:
+      - CMD
+      - redis-cli
+      - ping
+      interval: 5s
+      timeout: 3s
+      retries: 30
+  redis-init:
+    image: redis:7-alpine
+    entrypoint:
+    - sh
+    - /setup.sh
+    volumes:
+    - ./infra/redis-cluster-init.sh:/setup.sh:ro
+    depends_on:
+      redis-1:
+        condition: service_healthy
+      redis-2:
+        condition: service_healthy
+      redis-3:
+        condition: service_healthy
+      redis-4:
+        condition: service_healthy
+      redis-5:
+        condition: service_healthy
+      redis-6:
+        condition: service_healthy
+  postgres:
+    image: postgis/postgis:16-3.4
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ecopulse
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ecopulse}
+      POSTGRES_DB: ecopulse
+    volumes:
+    - postgres-data:/var/lib/postgresql/data
+    - ./database:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U ecopulse
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  api:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://ecopulse:${POSTGRES_PASSWORD:-ecopulse}@postgres:5432/ecopulse
+      RABBITMQ_URLS: amqp://ecopulse:${RABBITMQ_PASSWORD:-ecopulse}@rabbit-1:5672/,amqp://ecopulse:${RABBITMQ_PASSWORD:-ecopulse}@rabbit-2:5672/,amqp://ecopulse:${RABBITMQ_PASSWORD:-ecopulse}@rabbit-3:5672/
+      REDIS_URL: redis://redis-1:6379/0
+      JWT_SECRET: ${JWT_SECRET:?Copie .env.example para .env e configure JWT_SECRET}
+      FIREBASE_CREDENTIALS: ${FIREBASE_CREDENTIALS:-}
+      RABBITMQ_QUORUM: 'true'
+      REDIS_CLUSTER: 'true'
+    volumes: &id001
+    - ./secrets:/run/secrets:ro
+    depends_on: &id002
+      postgres:
+        condition: service_healthy
+      redis-init:
+        condition: service_completed_successfully
+      rabbit-1:
+        condition: service_healthy
+      rabbit-2:
+        condition: service_healthy
+      rabbit-3:
+        condition: service_healthy
+    ports:
+    - 8000:8000
+  worker-0:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://ecopulse:${POSTGRES_PASSWORD:-ecopulse}@postgres:5432/ecopulse
+      RABBITMQ_URLS: amqp://ecopulse:${RABBITMQ_PASSWORD:-ecopulse}@rabbit-1:5672/,amqp://ecopulse:${RABBITMQ_PASSWORD:-ecopulse}@rabbit-2:5672/,amqp://ecopulse:${RABBITMQ_PASSWORD:-ecopulse}@rabbit-3:5672/
+      REDIS_URL: redis://redis-1:6379/0
+      JWT_SECRET: ${JWT_SECRET:?Copie .env.example para .env e configure JWT_SECRET}
+      FIREBASE_CREDENTIALS: ${FIREBASE_CREDENTIALS:-}
+      WORKER_SHARD: 0
+      RABBITMQ_QUORUM: 'true'
+      REDIS_CLUSTER: 'true'
+    volumes: *id001
+    depends_on: *id002
+    command:
+    - python
+    - -m
+    - app.worker
+  worker-1:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://ecopulse:${POSTGRES_PASSWORD:-ecopulse}@postgres:5432/ecopulse
+      RABBITMQ_URLS: amqp://ecopulse:${RABBITMQ_PASSWORD:-ecopulse}@rabbit-1:5672/,amqp://ecopulse:${RABBITMQ_PASSWORD:-ecopulse}@rabbit-2:5672/,amqp://ecopulse:${RABBITMQ_PASSWORD:-ecopulse}@rabbit-3:5672/
+      REDIS_URL: redis://redis-1:6379/0
+      JWT_SECRET: ${JWT_SECRET:?Copie .env.example para .env e configure JWT_SECRET}
+      FIREBASE_CREDENTIALS: ${FIREBASE_CREDENTIALS:-}
+      WORKER_SHARD: 1
+      RABBITMQ_QUORUM: 'true'
+      REDIS_CLUSTER: 'true'
+    volumes: *id001
+    depends_on: *id002
+    command:
+    - python
+    - -m
+    - app.worker
+  alerts:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://ecopulse:${POSTGRES_PASSWORD:-ecopulse}@postgres:5432/ecopulse
+      RABBITMQ_URLS: amqp://ecopulse:${RABBITMQ_PASSWORD:-ecopulse}@rabbit-1:5672/,amqp://ecopulse:${RABBITMQ_PASSWORD:-ecopulse}@rabbit-2:5672/,amqp://ecopulse:${RABBITMQ_PASSWORD:-ecopulse}@rabbit-3:5672/
+      REDIS_URL: redis://redis-1:6379/0
+      JWT_SECRET: ${JWT_SECRET:?Copie .env.example para .env e configure JWT_SECRET}
+      FIREBASE_CREDENTIALS: ${FIREBASE_CREDENTIALS:-}
+      RABBITMQ_QUORUM: 'true'
+      REDIS_CLUSTER: 'true'
+    volumes: *id001
+    depends_on: *id002
+    command:
+    - uvicorn
+    - app.alerts:app
+    - --host
+    - 0.0.0.0
+    - --port
+    - '8001'
+    ports:
+    - 8001:8001
+volumes:
+  postgres-data: null
+  rabbit-1-data: null
+  rabbit-2-data: null
+  rabbit-3-data: null
+  redis-1-data: null
+  redis-2-data: null
+  redis-3-data: null
+  redis-4-data: null
+  redis-5-data: null
+  redis-6-data: null
