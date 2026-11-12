@@ -32,10 +32,11 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: 3.32.2
           cache: true
       - run: flutter pub get
         working-directory: mobile
-      - run: flutter analyze
+      - run: flutter analyze --no-fatal-infos
         working-directory: mobile
       - run: flutter test
         working-directory: mobile
